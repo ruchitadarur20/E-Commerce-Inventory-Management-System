@@ -1,0 +1,4 @@
+# Gitignore for server dependencies, logs, and environment secrets
+node_modules/
+.env
+npm-debug.log*

@@ -1,0 +1,6 @@
+# Root gitignore for the MERN monorepo (dependencies, env files, OS artifacts)
+node_modules/
+.env
+.env.local
+.DS_Store
+dist/

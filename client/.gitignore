@@ -1,0 +1,5 @@
+# Gitignore for client dependencies, build output, and environment secrets
+node_modules/
+dist/
+.env
+.env.local
