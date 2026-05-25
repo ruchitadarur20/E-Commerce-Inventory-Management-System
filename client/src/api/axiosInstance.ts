@@ -1,2 +1,16 @@
-// Axios instance configured with base URL and auth interceptors
-export {};
+import axios from 'axios';
+
+const axiosInstance = axios.create({
+  baseURL: 'http://localhost:5001/api',
+});
+
+// Attach stored JWT to every outbound request
+axiosInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export default axiosInstance;
