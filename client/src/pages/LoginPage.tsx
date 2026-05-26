@@ -91,7 +91,7 @@ export default function LoginPage() {
             onClick={fillDemo}
             className="w-full text-sm text-indigo-600 hover:text-indigo-800 font-medium py-2 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
           >
-            Demo — fill admin@test.com / secret123
+            Demo — fill admin@demo.com / demo1234
           </button>
         </div>
       </div>

@@ -62,6 +62,11 @@ export default function ProductsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editForm, setEditForm] = useState<ProductForm>(EMPTY_FORM);
+  const [editFormError, setEditFormError] = useState<string | null>(null);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+
   const fetchProducts = async (name?: string) => {
     setIsLoading(true);
     setError(null);
@@ -101,6 +106,52 @@ export default function ProductsPage() {
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditOpen = (product: Product) => {
+    setEditingProduct(product);
+    setEditForm({
+      name: product.name,
+      sku: product.sku,
+      category: product.category,
+      quantity: String(product.quantity),
+      price: String(product.price),
+      lowStockThreshold: String(product.lowStockThreshold),
+      supplier: product.supplier ?? '',
+    });
+    setEditFormError(null);
+  };
+
+  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+    setEditFormError(null);
+    setIsEditSubmitting(true);
+    try {
+      await axiosInstance.put(`/products/${editingProduct._id}`, {
+        name: editForm.name.trim(),
+        sku: editForm.sku.trim(),
+        category: editForm.category.trim(),
+        quantity: Number(editForm.quantity),
+        price: Number(editForm.price),
+        lowStockThreshold: Number(editForm.lowStockThreshold),
+        supplier: editForm.supplier.trim() || undefined,
+      });
+      setEditingProduct(null);
+      fetchProducts(searchName.trim() || undefined);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Failed to update product.';
+      setEditFormError(msg);
+    } finally {
+      setIsEditSubmitting(false);
+    }
   };
 
   const handleAddProduct = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -184,6 +235,53 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {/* Edit product form */}
+      {editingProduct && (
+        <div className="bg-white rounded-xl shadow-sm border border-indigo-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-800">Update Product</h2>
+            <button
+              onClick={() => setEditingProduct(null)}
+              className="text-gray-400 hover:text-gray-600 text-sm"
+            >
+              ✕ Cancel
+            </button>
+          </div>
+          {editFormError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">
+              {editFormError}
+            </div>
+          )}
+          <form onSubmit={handleEditSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FORM_FIELDS.map((field) => (
+              <div key={field.name}>
+                <label className="block text-xs font-medium text-gray-600 mb-1">{field.label}</label>
+                <input
+                  name={field.name}
+                  type={field.type ?? 'text'}
+                  value={editForm[field.name]}
+                  onChange={handleEditFormChange}
+                  placeholder={field.placeholder}
+                  required={field.required !== false}
+                  min={field.type === 'number' ? '0' : undefined}
+                  step={field.name === 'price' ? '0.01' : undefined}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+              </div>
+            ))}
+            <div className="sm:col-span-2 lg:col-span-3 flex justify-end pt-1">
+              <button
+                type="submit"
+                disabled={isEditSubmitting}
+                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
+              >
+                {isEditSubmitting ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Search bar */}
       <div className="flex items-center gap-2 mb-5">
         <input
@@ -253,7 +351,13 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-600">${product.price.toFixed(2)}</td>
                     {isAdmin && (
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 flex items-center gap-3">
+                        <button
+                          onClick={() => handleEditOpen(product)}
+                          className="text-indigo-500 hover:text-indigo-700 text-xs font-medium hover:underline"
+                        >
+                          Edit
+                        </button>
                         <button
                           onClick={() => handleDelete(product._id, product.name)}
                           className="text-red-500 hover:text-red-700 text-xs font-medium hover:underline"
