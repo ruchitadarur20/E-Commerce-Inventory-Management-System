@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axiosInstance from '../api/axiosInstance';
+import { useAuth } from '../context/AuthContext';
 import type { Order, Product } from '../types';
 
 interface OrdersResponse {
@@ -35,8 +36,14 @@ const STATUS_BADGE: Record<Order['status'], string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
+const ORDER_STATUSES: Order['status'][] = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+
 export default function OrdersPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   const [orders, setOrders] = useState<Order[]>([]);
+  const [statusErrors, setStatusErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -162,6 +169,25 @@ export default function OrdersPage() {
       setFormError(msg);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleStatusChange = async (orderId: string, newStatus: Order['status']) => {
+    const previousStatus = orders.find((o) => o._id === orderId)?.status;
+    // Optimistic update
+    setOrders((prev) => prev.map((o) => (o._id === orderId ? { ...o, status: newStatus } : o)));
+    setStatusErrors((prev) => ({ ...prev, [orderId]: '' }));
+    try {
+      await axiosInstance.put(`/orders/${orderId}/status`, { status: newStatus });
+    } catch (err: unknown) {
+      // Revert to previous status on failure
+      if (previousStatus) {
+        setOrders((prev) => prev.map((o) => (o._id === orderId ? { ...o, status: previousStatus } : o)));
+      }
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Failed to update status.';
+      setStatusErrors((prev) => ({ ...prev, [orderId]: msg }));
     }
   };
 
@@ -339,11 +365,28 @@ export default function OrdersPage() {
                   </td>
                   <td className="px-4 py-3 font-medium text-gray-900">${order.totalAmount.toFixed(2)}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_BADGE[order.status]}`}
-                    >
-                      {order.status}
-                    </span>
+                    {isAdmin ? (
+                      <div>
+                        <select
+                          value={order.status}
+                          onChange={(e) => handleStatusChange(order._id, e.target.value as Order['status'])}
+                          className={`text-xs font-medium capitalize rounded-full px-2.5 py-0.5 border border-transparent cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 ${STATUS_BADGE[order.status]}`}
+                        >
+                          {ORDER_STATUSES.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                        {statusErrors[order._id] && (
+                          <p className="text-red-500 text-xs mt-1">{statusErrors[order._id]}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_BADGE[order.status]}`}
+                      >
+                        {order.status}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs">
                     {new Date(order.createdAt).toLocaleDateString(undefined, {
